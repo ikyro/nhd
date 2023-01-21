@@ -2,7 +2,6 @@ use args::Args;
 use clap::Parser;
 use config::Config;
 use nhentai::Nhentai;
-use std::{thread, time::Duration};
 
 mod args;
 mod config;
@@ -13,23 +12,11 @@ fn main() {
     let Config {
         user_agent,
         csrftoken,
+        nhentai_path,
     } = Config::new().unwrap();
     let doujin = Nhentai::new(cli.code, user_agent, csrftoken);
 
-    let urls = doujin.get_pages_url().unwrap();
+    println!("{}", doujin.get_title());
 
-    thread::spawn(|| {
-        urls.iter().for_each(|url| {
-            doujin
-                .client
-                .get(url)
-                .get(format!("https://nhentai.net/api/gallery/{}", code))
-                .header(USER_AGENT, user_agent)
-                .header(COOKIE, format!("csrftoken={}", csrftoken))
-                .send()
-                .unwrap()
-                .json()
-                .unwrap()
-        })
-    });
+    doujin.build(nhentai_path);
 }

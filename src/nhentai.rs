@@ -3,6 +3,12 @@ use reqwest::{
     header::{COOKIE, USER_AGENT},
 };
 use serde_json::Value;
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+    thread,
+};
 
 #[derive(Debug)]
 pub struct Nhentai {
@@ -52,5 +58,32 @@ impl Nhentai {
                 })
                 .collect(),
         )
+    }
+
+    pub fn build(&self, path: PathBuf) {
+        let pages_url = self.get_pages_url().unwrap();
+        let title = self
+            .get_title()
+            .replace(' ', "_")
+            .replace(' ', "")
+            .replace('"', "");
+        let path = path.join(title);
+
+        fs::create_dir(&path).unwrap();
+        let handle = thread::spawn(move || {
+            pages_url.iter().enumerate().for_each(|(i, url)| {
+                let buffer = reqwest::blocking::get(url).unwrap().bytes().unwrap();
+                let mut file = File::create(&path.join(format!(
+                    "{}.{}",
+                    i + 1,
+                    url.split('.').last().unwrap()
+                )))
+                .unwrap();
+
+                file.write_all(&buffer).unwrap();
+            });
+        });
+
+        handle.join().unwrap();
     }
 }

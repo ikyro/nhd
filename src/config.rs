@@ -3,22 +3,23 @@ use requestty::{Answers, ErrorKind, Question};
 use serde_json::json;
 use std::{
     error, fs,
-    io::{Read, Write},
+    io::{Read, Write}, path::PathBuf,
 };
 
 pub struct Config {
     pub(crate) csrftoken: String,
     pub(crate) user_agent: String,
+    pub(crate) nhentai_path: PathBuf,
 }
 
 impl Config {
     pub fn new() -> Result<Self, Box<dyn error::Error>> {
-        let nhenta_path = home_dir()
+        let nhentai_path = home_dir()
             .expect("Failed to get home directory path")
             .join(".nhentai");
 
-        if nhenta_path.is_dir() {
-            let mut file = fs::File::open(&nhenta_path.join("config.json"))?;
+        if nhentai_path.is_dir() {
+            let mut file = fs::File::open(&nhentai_path.join("config.json"))?;
             let mut buffer = String::new();
 
             file.read_to_string(&mut buffer)?;
@@ -28,12 +29,13 @@ impl Config {
             Ok(Self {
                 csrftoken: buffer["csrftoken"].to_string(),
                 user_agent: buffer["user_agent"].to_string(),
+                nhentai_path,
             })
         } else {
-            fs::create_dir(&nhenta_path)?;
+            fs::create_dir(&nhentai_path)?;
 
             let answers = Config::get_answers()?;
-            let mut file = fs::File::create(&nhenta_path.join("config.json"))?;
+            let mut file = fs::File::create(&nhentai_path.join("config.json"))?;
             let json = json!({
                 "csrftoken": &answers.get("CSRFTOKEN").unwrap().as_string(),
                 "user_agent": &answers.get("USER_AGENT").unwrap().as_string(),
@@ -44,6 +46,7 @@ impl Config {
             Ok(Self {
                 csrftoken: json["csrftoken"].to_string(),
                 user_agent: json["user_agent"].to_string(),
+                nhentai_path,
             })
         }
     }
