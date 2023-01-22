@@ -1,40 +1,46 @@
+use futures::future::join_all;
 use reqwest::{
-    blocking::Client,
     header::{COOKIE, USER_AGENT},
+    Client,
 };
 use serde_json::Value;
 use std::{
-    fs::{self, File},
+    fs::{create_dir, File},
     io::Write,
     path::PathBuf,
-    thread,
 };
 
 #[derive(Debug)]
 pub struct Nhentai {
-    pub client: Client,
     doujin: Value,
+    client: Client,
 }
 
 impl Nhentai {
-    pub fn new(code: i64, user_agent: String, csrftoken: String) -> Self {
+    pub async fn new(code: i64, user_agent: String, csrftoken: String) -> Self {
         let client = Client::new();
+
         let doujin = client
             .get(format!("https://nhentai.net/api/gallery/{}", code))
             .header(USER_AGENT, user_agent)
-            .header(COOKIE, format!("csrftoken={}", csrftoken))
+            .header(COOKIE, format!("cf_clearance={}", csrftoken))
             .send()
-            .unwrap()
+            .await
+            .expect("Failed to send request")
             .json()
-            .unwrap();
+            .await
+            .expect("Failed to parse response");
 
         Self { doujin, client }
     }
 
     pub fn get_title(&self) -> String {
-        match self.doujin["title"]["english"].is_null() {
-            true => self.doujin["title"]["japanese"].to_string(),
-            false => self.doujin["title"]["english"].to_string(),
+        if !self.doujin["title"]["pretty"].is_null() {
+            self.doujin["title"]["pretty"].to_string()
+        } else if !self.doujin["title"]["english"].is_null() {
+            self.doujin["title"]["english"].to_string()
+        } else {
+            self.doujin["title"]["japanese"].to_string()
         }
     }
 
@@ -49,41 +55,51 @@ impl Nhentai {
                 .as_array()?
                 .iter()
                 .enumerate()
-                .map(|(i, page)| {
-                    if page["t"] == "j" {
+                .map(|(i, page)| match page["t"].as_str() {
+                    Some("j") => {
                         format!("https://i.nhentai.net/galleries/{}/{}.jpg", media_id, i + 1)
-                    } else {
+                    }
+                    Some("p") => {
                         format!("https://i.nhentai.net/galleries/{}/{}.png", media_id, i + 1)
                     }
+                    _ => format!("https://i.nhentai.net/galleries/{}/{}.jpg", media_id, i + 1),
                 })
                 .collect(),
         )
     }
 
-    pub fn build(&self, path: PathBuf) {
+    /* PathBuf | Path */
+    pub async fn build(&self, path: PathBuf) {
         let pages_url = self.get_pages_url().unwrap();
-        let title = self
-            .get_title()
-            .replace(' ', "_")
-            .replace(' ', "")
-            .replace('"', "");
-        let path = path.join(title);
+        let path = path.join(self.doujin["id"].to_string());
 
-        fs::create_dir(&path).unwrap();
-        let handle = thread::spawn(move || {
-            pages_url.iter().enumerate().for_each(|(i, url)| {
-                let buffer = reqwest::blocking::get(url).unwrap().bytes().unwrap();
-                let mut file = File::create(&path.join(format!(
-                    "{}.{}",
-                    i + 1,
-                    url.split('.').last().unwrap()
-                )))
-                .unwrap();
+        if let Ok(_) = create_dir(&path) {
+            let tasks = pages_url.into_iter().enumerate().map(move |(i, url)| {
+                let path = path.clone();
+                let client = self.client.clone();
 
-                file.write_all(&buffer).unwrap();
+                tokio::spawn(async move {
+                    let buffer = client
+                        .get(&url)
+                        .send()
+                        .await
+                        .expect("Failed to request image")
+                        .bytes()
+                        .await
+                        .expect("Failed to get image bytes");
+
+                    let mut file = File::create(path.join(format!(
+                        "{}.{}",
+                        i + 1,
+                        url.split('.').last().unwrap()
+                    )))
+                    .expect("Failed to create file");
+
+                    file.write_all(&buffer).unwrap();
+                })
             });
-        });
 
-        handle.join().unwrap();
+            join_all(tasks).await;
+        }
     }
 }
