@@ -51,7 +51,7 @@ impl Config {
     fn get_answers() -> Result<Answers, ErrorKind> {
         let questions = vec![
             Question::input("cf_clearance")
-                .message("Enter your CSRF token")
+                .message("Enter your cf_clearance")
                 .build(),
             Question::input("user_agent")
                 .message("Enter your User-Agent")
