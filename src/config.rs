@@ -1,10 +1,6 @@
-use dirs::home_dir;
 use requestty::{Answers, ErrorKind, Question};
-use serde_json::json;
-use std::{
-    error, fs,
-    io::{Read, Write}, path::PathBuf,
-};
+use serde_json::{from_str, json, Value};
+use std::{error, fs, io::Write, path::PathBuf};
 
 pub struct Config {
     pub(crate) csrftoken: String,
@@ -14,41 +10,42 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Result<Self, Box<dyn error::Error>> {
-        let nhentai_path = home_dir()
-            .expect("Failed to get home directory path")
-            .join(".nhentai");
+        let nhentai_path = dirs::home_dir()
+            .expect("Could not find home directory")
+            .join(".nhentai")
+            .join("config.json");
+        let nhentai_path_parent = nhentai_path.parent().unwrap();
+        let mut csrftoken = String::new();
+        let mut user_agent = String::new();
 
-        if nhentai_path.is_dir() {
-            let mut file = fs::File::open(&nhentai_path.join("config.json"))?;
-            let mut buffer = String::new();
+        if nhentai_path.is_file() {
+            let file = fs::read_to_string(&nhentai_path).expect("Could not read config file");
+            let file = from_str::<Value>(file.as_str()).expect("Could not parse config file");
 
-            file.read_to_string(&mut buffer)?;
-
-            let buffer = json!(buffer);
-
-            Ok(Self {
-                csrftoken: buffer["csrftoken"].to_string(),
-                user_agent: buffer["user_agent"].to_string(),
-                nhentai_path,
-            })
+            csrftoken.push_str(file["csrftoken"].as_str().unwrap());
+            user_agent.push_str(file["user_agent"].as_str().unwrap());
         } else {
-            fs::create_dir(&nhentai_path)?;
+            if !nhentai_path_parent.is_dir() {
+                fs::create_dir(&nhentai_path_parent)?;
+            }
 
+            let mut file = fs::File::create(&nhentai_path)?;
             let answers = Config::get_answers()?;
-            let mut file = fs::File::create(&nhentai_path.join("config.json"))?;
             let json = json!({
-                "csrftoken": &answers.get("CSRFTOKEN").unwrap().as_string(),
-                "user_agent": &answers.get("USER_AGENT").unwrap().as_string(),
+                "csrftoken": answers.get("csrftoken").unwrap().as_string(),
+                "user_agent": answers.get("user_agent").unwrap().as_string(),
             });
 
             file.write_all(&json.to_string().as_bytes())?;
-
-            Ok(Self {
-                csrftoken: json["csrftoken"].to_string(),
-                user_agent: json["user_agent"].to_string(),
-                nhentai_path,
-            })
+            csrftoken.push_str(json["csrftoken"].as_str().unwrap());
+            user_agent.push_str(json["user_agent"].as_str().unwrap());
         }
+
+        Ok(Self {
+            csrftoken,
+            user_agent,
+            nhentai_path,
+        })
     }
 
     fn get_answers() -> Result<Answers, ErrorKind> {
