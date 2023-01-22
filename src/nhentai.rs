@@ -17,13 +17,13 @@ pub struct Nhentai {
 }
 
 impl Nhentai {
-    pub async fn new(code: i64, user_agent: String, csrftoken: String) -> Self {
+    pub async fn new(code: i64, user_agent: String, cf_clearance: String) -> Self {
         let client = Client::new();
 
         let doujin = client
             .get(format!("https://nhentai.net/api/gallery/{}", code))
             .header(USER_AGENT, user_agent)
-            .header(COOKIE, format!("cf_clearance={}", csrftoken))
+            .header(COOKIE, format!("cf_clearance={}", cf_clearance))
             .send()
             .await
             .expect("Failed to send request")

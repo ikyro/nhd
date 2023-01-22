@@ -34,10 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Args::parse();
     let Config {
         user_agent,
-        csrftoken,
+        cf_clearance,
         nhentai_path,
     } = Config::new()?;
-    let doujin = Nhentai::new(cli.code, user_agent, csrftoken).await;
+    let doujin = Nhentai::new(cli.code, user_agent, cf_clearance).await;
     let path = match cli.path {
         true => get_custom_path(),
         false => nhentai_path.parent().unwrap().to_path_buf(),
