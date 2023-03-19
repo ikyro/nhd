@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Ikyro <ikyroch@gmail.com>"]
 description = "Fazt cli to download nhentai doujins"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ikyro/nhd"
+exclude = [ "docs/" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
