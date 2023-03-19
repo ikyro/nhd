@@ -2,6 +2,14 @@
 
 how bypass cloudflare protection on  [wiki](https://github.com/ikyro/nhd/wiki)
 
+# Install
+
+download from release copilet binary
+
+```sh
+cargo install nhd
+```
+
 # Usage
 
 By default the program will download the doujin in to `~/.nhentai`
