@@ -1,6 +1,6 @@
 [package]
 name = "nhd"
-version = "0.1.0"
+version = "0.0.2"
 authors = ["Ikyro <ikyroch@gmail.com>"]
 description = "Fazt cli to download nhentai doujins"
 edition = "2021"
